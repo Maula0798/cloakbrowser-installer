@@ -389,9 +389,14 @@ printf "\n"
 
 ANSWER=""
 
+ANSWER=""
+
 while true; do
 
-    read -r -p "Ketik YES setelah upload PIA selesai: " ANSWER
+    printf "\n"
+    read -r -p "Ketik YES setelah upload PIA selesai: " ANSWER < /dev/tty
+
+    ANSWER="$(printf '%s' "$ANSWER" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
 
     if [ "$ANSWER" = "YES" ]; then
         break
