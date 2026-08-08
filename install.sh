@@ -2,10 +2,11 @@
 set -Eeuo pipefail
 
 # ============================================================
-# CLOAKBROWSER MANAGER INSTALLER
+# CLOAKBROWSER MOD INSTALLER
 # Ubuntu 24.04
-# Docker + CloakBrowser Manager + Online :8080
+# Docker + CloakBrowser MOD + Online :8080
 # Manual PIA VPN Upload
+# Create Initial Profiles
 # ============================================================
 
 REPO_URL="https://github.com/Maula0798/CloakBrowser-MOD.git"
@@ -15,20 +16,26 @@ PIA_DIR="$APP_DIR/extensions/pia"
 COMPOSE_FILE="$APP_DIR/docker-compose.yml"
 OVERRIDE_FILE="$APP_DIR/docker-compose.override.yml"
 
-CONTAINER_NAME="cloakbrowser-manager-manager-1"
-
 # ============================================================
 # ERROR HANDLER
 # ============================================================
 
-trap 'printf "\n[ERROR] Installer berhenti pada baris %s\n" "$LINENO"; exit 1' ERR
+trap '
+printf "\n"
+printf "%s\n" "============================================================"
+printf "%s\n" "[ERROR] Installer berhenti pada baris $LINENO"
+printf "%s\n" "============================================================"
+printf "\n"
+exit 1
+' ERR
 
 # ============================================================
 # ROOT CHECK
 # ============================================================
 
 if [ "$EUID" -ne 0 ]; then
-    printf "\n[ERROR] Jalankan sebagai root.\n"
+    printf "\n"
+    printf '%s\n' '[ERROR] Jalankan sebagai root.'
     exit 1
 fi
 
@@ -36,28 +43,33 @@ fi
 # HEADER
 # ============================================================
 
+clear 2>/dev/null || true
+
 printf "\n"
 printf '%s\n' '============================================================'
-printf '%s\n' '        CLOAKBROWSER MANAGER INSTALLER'
+printf '%s\n' '          CLOAKBROWSER MOD INSTALLER'
 printf '%s\n' '============================================================'
 printf "\n"
+
 printf '%s\n' 'Ubuntu 24.04'
 printf '%s\n' 'Docker'
-printf '%s\n' 'CloakBrowser Manager'
+printf '%s\n' 'CloakBrowser MOD'
 printf '%s\n' 'PIA VPN Extension'
+printf '%s\n' 'Initial Profiles'
 printf "\n"
-printf '%s\n' 'Semua proses akan ditampilkan di terminal.'
+
+printf '%s\n' 'Installer akan menampilkan proses secara realtime.'
 printf "\n"
 
 sleep 2
 
 # ============================================================
-# 1. UBUNTU
+# 1/11 - UBUNTU
 # ============================================================
 
 printf "\n"
 printf '%s\n' '============================================================'
-printf '%s\n' ' 1/10 - UPDATE UBUNTU'
+printf '%s\n' ' 1/11 - UPDATE UBUNTU'
 printf '%s\n' '============================================================'
 printf "\n"
 
@@ -80,12 +92,12 @@ printf "\n"
 printf '%s\n' '[OK] Ubuntu siap.'
 
 # ============================================================
-# 2. DOCKER
+# 2/11 - DOCKER
 # ============================================================
 
 printf "\n"
 printf '%s\n' '============================================================'
-printf '%s\n' ' 2/10 - INSTALL / CEK DOCKER'
+printf '%s\n' ' 2/11 - INSTALL / CEK DOCKER'
 printf '%s\n' '============================================================'
 printf "\n"
 
@@ -148,12 +160,12 @@ printf "\n"
 docker compose version
 
 # ============================================================
-# 3. DOCKER SERVICE
+# 3/11 - DOCKER SERVICE
 # ============================================================
 
 printf "\n"
 printf '%s\n' '============================================================'
-printf '%s\n' ' 3/10 - DOCKER SERVICE'
+printf '%s\n' ' 3/11 - DOCKER SERVICE'
 printf '%s\n' '============================================================'
 printf "\n"
 
@@ -167,32 +179,40 @@ else
 fi
 
 # ============================================================
-# 4. CLOAKBROWSER SOURCE
+# 4/11 - CLOAKBROWSER MOD
 # ============================================================
 
 printf "\n"
 printf '%s\n' '============================================================'
-printf '%s\n' ' 4/10 - CLOAKBROWSER MANAGER'
+printf '%s\n' ' 4/11 - CLOAKBROWSER MOD'
 printf '%s\n' '============================================================'
 printf "\n"
 
 if [ -d "$APP_DIR/.git" ]; then
 
-    printf '%s\n' '[INFO] Repository CloakBrowser sudah ada.'
+    printf '%s\n' '[INFO] Repository sudah ada.'
 
     cd "$APP_DIR"
 
     printf "\n"
-    printf '%s\n' '[1/2] Git status...'
+    printf '%s\n' '[1/3] Cek remote repository...'
+
+    git remote set-url origin "$REPO_URL"
+
+    printf '%s\n' '[2/3] Git status...'
     git status --short || true
 
     printf "\n"
-    printf '%s\n' '[2/2] Update repository...'
+    printf '%s\n' '[3/3] Update repository MOD...'
+
+    git fetch origin
     git pull --ff-only
 
 else
 
-    printf '%s\n' '[INFO] Download CloakBrowser Manager...'
+    printf '%s\n' '[INFO] Clone CloakBrowser MOD...'
+    printf '%s\n' "$REPO_URL"
+    printf "\n"
 
     mkdir -p /opt
 
@@ -203,15 +223,15 @@ fi
 cd "$APP_DIR"
 
 printf "\n"
-printf '%s\n' '[OK] Source CloakBrowser siap.'
+printf '%s\n' '[OK] CloakBrowser MOD siap.'
 
 # ============================================================
-# 5. FOLDER PIA
+# 5/11 - FOLDER PIA
 # ============================================================
 
 printf "\n"
 printf '%s\n' '============================================================'
-printf '%s\n' ' 5/10 - SIAPKAN FOLDER PIA'
+printf '%s\n' ' 5/11 - SIAPKAN FOLDER PIA'
 printf '%s\n' '============================================================'
 printf "\n"
 
@@ -221,12 +241,12 @@ printf '%s\n' '[OK] Folder PIA siap:'
 printf '%s\n' "  $PIA_DIR"
 
 # ============================================================
-# 6. DOCKER COMPOSE CONFIG
+# 6/11 - DOCKER + PIA
 # ============================================================
 
 printf "\n"
 printf '%s\n' '============================================================'
-printf '%s\n' ' 6/10 - KONFIGURASI DOCKER + PIA'
+printf '%s\n' ' 6/11 - KONFIGURASI DOCKER + PIA'
 printf '%s\n' '============================================================'
 printf "\n"
 
@@ -277,7 +297,7 @@ services:
         read_only: true
 EOF
 
-printf '%s\n' '[OK] PIA mount dikonfigurasi:'
+printf '%s\n' '[OK] PIA mount:'
 printf '%s\n' "  $PIA_DIR"
 printf '%s\n' '       ↓'
 printf '%s\n' '  /data/extensions/pia'
@@ -294,16 +314,16 @@ docker compose config >/dev/null
 printf '%s\n' '[OK] Docker Compose valid.'
 
 # ============================================================
-# 7. BUILD
+# 7/11 - BUILD
 # ============================================================
 
 printf "\n"
 printf '%s\n' '============================================================'
-printf '%s\n' ' 7/10 - BUILD CLOAKBROWSER'
+printf '%s\n' ' 7/11 - BUILD CLOAKBROWSER MOD'
 printf '%s\n' '============================================================'
 printf "\n"
 
-printf '%s\n' '[INFO] Build Docker dimulai...'
+printf '%s\n' '[INFO] Docker build dimulai.'
 printf '%s\n' '[INFO] Log build ditampilkan realtime.'
 printf "\n"
 
@@ -313,12 +333,12 @@ printf "\n"
 printf '%s\n' '[OK] Build selesai.'
 
 # ============================================================
-# 8. START + ONLINE
+# 8/11 - START + ONLINE
 # ============================================================
 
 printf "\n"
 printf '%s\n' '============================================================'
-printf '%s\n' ' 8/10 - START CLOAKBROWSER + PORT 8080'
+printf '%s\n' ' 8/11 - START CLOAKBROWSER + PORT 8080'
 printf '%s\n' '============================================================'
 printf "\n"
 
@@ -352,19 +372,19 @@ else
 fi
 
 # ============================================================
-# 9. PAUSE UPLOAD PIA
+# 9/11 - UPLOAD PIA
 # ============================================================
 
 printf "\n"
 printf '%s\n' '============================================================'
-printf '%s\n' ' 9/10 - UPLOAD PIA VPN'
+printf '%s\n' ' 9/11 - UPLOAD PIA VPN'
 printf '%s\n' '============================================================'
 printf "\n"
 
-printf '%s\n' 'CloakBrowser sudah terpasang.'
+printf '%s\n' 'CloakBrowser MOD sudah online.'
 printf "\n"
 
-printf '%s\n' 'Sekarang installer PAUSE sementara.'
+printf '%s\n' 'Installer PAUSE sementara.'
 printf "\n"
 
 printf '%s\n' 'Silakan upload folder PIA ke:'
@@ -389,14 +409,17 @@ printf "\n"
 
 ANSWER=""
 
-ANSWER=""
-
 while true; do
 
-    printf "\n"
-    read -r -p "Ketik YES setelah upload PIA selesai: " ANSWER < /dev/tty
+    read -r -p \
+        "Ketik YES setelah upload PIA selesai: " \
+        ANSWER < /dev/tty
 
-    ANSWER="$(printf '%s' "$ANSWER" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+    ANSWER="$(
+        printf '%s' "$ANSWER" |
+        tr -d '[:space:]' |
+        tr '[:lower:]' '[:upper:]'
+    )"
 
     if [ "$ANSWER" = "YES" ]; then
         break
@@ -413,12 +436,12 @@ printf '%s\n' '[OK] YES diterima.'
 printf '%s\n' '[INFO] Melanjutkan instalasi...'
 
 # ============================================================
-# 10. VALIDASI PIA
+# 10/11 - VALIDASI PIA
 # ============================================================
 
 printf "\n"
 printf '%s\n' '============================================================'
-printf '%s\n' ' 10/10 - VALIDASI PIA'
+printf '%s\n' ' 10/11 - VALIDASI PIA'
 printf '%s\n' '============================================================'
 printf "\n"
 
@@ -430,9 +453,10 @@ if [ ! -f "$PIA_DIR/manifest.json" ]; then
     printf '%s\n' '[ERROR] manifest.json tidak ditemukan.'
     printf '%s\n' "Folder: $PIA_DIR"
     printf "\n"
-    ls -la "$PIA_DIR"
-    printf "\n"
 
+    ls -la "$PIA_DIR"
+
+    printf "\n"
     exit 1
 
 fi
@@ -440,7 +464,7 @@ fi
 printf '%s\n' '[OK] manifest.json ditemukan.'
 
 # ------------------------------------------------------------
-# MANIFEST
+# MANIFEST INFO
 # ------------------------------------------------------------
 
 printf "\n"
@@ -449,11 +473,11 @@ printf "\n"
 
 grep -E \
     '"manifest_version"|"name"|"version"' \
-    "$PIA_DIR/manifest.json" \
-    | head -10 || true
+    "$PIA_DIR/manifest.json" |
+    head -10 || true
 
 # ------------------------------------------------------------
-# COMPOSE
+# COMPOSE VALIDATION
 # ------------------------------------------------------------
 
 printf "\n"
@@ -483,7 +507,7 @@ printf '%s\n' '[OK] Container sudah direcreate.'
 printf "\n"
 printf '%s\n' '[5/5] Cek PIA dari dalam container...'
 
-if docker exec "$CONTAINER_NAME" \
+if docker compose exec -T manager \
     test -f /data/extensions/pia/manifest.json; then
 
     printf '%s\n' '[OK] PIA TERBACA DI CONTAINER.'
@@ -498,10 +522,11 @@ else
     printf '%s\n' "  $PIA_DIR"
     printf '%s\n' '       ↓'
     printf '%s\n' '  /data/extensions/pia'
+
     printf "\n"
 
-    docker inspect "$CONTAINER_NAME" \
-        --format '{{json .Mounts}}' || true
+    docker compose config |
+        grep -A10 -B5 '/data/extensions/pia' || true
 
     printf "\n"
     docker compose logs --tail=100 || true
@@ -511,7 +536,119 @@ else
 fi
 
 # ============================================================
-# FINAL
+# 11/11 - CREATE INITIAL PROFILES
+# ============================================================
+
+printf "\n"
+printf '%s\n' '============================================================'
+printf '%s\n' ' 11/11 - CREATE INITIAL PROFILES'
+printf '%s\n' '============================================================'
+printf "\n"
+
+DEFAULT_PROFILE_COUNT=4
+
+printf '%s\n' "Default jumlah profile: $DEFAULT_PROFILE_COUNT"
+printf '%s\n' 'Tekan ENTER untuk memakai 4 profile.'
+printf '%s\n' 'Atau masukkan jumlah lain.'
+printf "\n"
+
+read -r -p \
+    "Berapa profile yang ingin dibuat? [$DEFAULT_PROFILE_COUNT]: " \
+    PROFILE_COUNT < /dev/tty
+
+if [ -z "$PROFILE_COUNT" ]; then
+    PROFILE_COUNT="$DEFAULT_PROFILE_COUNT"
+fi
+
+if ! [[ "$PROFILE_COUNT" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' '[ERROR] Jumlah profile harus berupa angka.'
+    exit 1
+fi
+
+if [ "$PROFILE_COUNT" -lt 1 ]; then
+    printf '%s\n' '[ERROR] Jumlah profile minimal 1.'
+    exit 1
+fi
+
+printf "\n"
+printf '%s\n' "[INFO] Membuat $PROFILE_COUNT profile..."
+printf "\n"
+
+# ------------------------------------------------------------
+# Cari database.py yang benar di dalam container
+# ------------------------------------------------------------
+
+DB_FILE="$(
+    docker compose exec -T manager sh -c \
+    'find /app /opt /workspace /src -type f -name database.py 2>/dev/null | head -1' |
+    tr -d '\r'
+)"
+
+if [ -z "$DB_FILE" ]; then
+
+    printf "\n"
+    printf '%s\n' '[ERROR] database.py tidak ditemukan di container.'
+    printf "\n"
+
+    printf '%s\n' 'Folder container yang tersedia:'
+    docker compose exec -T manager sh -c \
+        'ls -la /app 2>/dev/null || true; ls -la /opt 2>/dev/null || true; ls -la /workspace 2>/dev/null || true; ls -la /src 2>/dev/null || true'
+
+    printf "\n"
+    exit 1
+
+fi
+
+DB_DIR="$(dirname "$DB_FILE")"
+
+printf '%s\n' '[OK] database.py ditemukan:'
+printf '%s\n' "  $DB_FILE"
+printf "\n"
+
+printf '%s\n' '[INFO] Menjalankan create_initial_profiles()...'
+printf "\n"
+
+docker compose exec -T \
+    -e PROFILE_COUNT="$PROFILE_COUNT" \
+    -e DB_FILE="$DB_FILE" \
+    -e DB_DIR="$DB_DIR" \
+    manager \
+    python3 -c '
+import os
+import sys
+
+db_dir = os.environ["DB_DIR"]
+sys.path.insert(0, db_dir)
+
+from database import create_initial_profiles
+
+count = int(os.environ["PROFILE_COUNT"])
+
+profiles = create_initial_profiles(count)
+
+print("")
+print("=" * 60)
+print(f"[OK] {len(profiles)} PROFILE BERHASIL DIBUAT")
+print("=" * 60)
+
+for i, profile in enumerate(profiles, 1):
+
+    print("")
+    print(f"[{i}/{len(profiles)}] {profile.get(\"name\")}")
+    print(f"      UUID : {profile.get(\"id\")}")
+    print(f"      Seed : {profile.get(\"fingerprint_seed\")}")
+    print(f"      Data : {profile.get(\"user_data_dir\")}")
+    
+    args = profile.get("launch_args") or []
+
+    print(f"      Launch Args : {len(args)}")
+
+    for arg in args:
+        print(f"        - {arg}")
+'
+
+# ============================================================
+# FINAL STATUS
 # ============================================================
 
 printf "\n"
@@ -535,10 +672,14 @@ printf '%s\n' 'PIA Container:'
 printf '%s\n' '  /data/extensions/pia'
 
 printf "\n"
-printf '%s\n' 'Chromium launch args:'
+printf '%s\n' 'Default Chromium Launch Args:'
 printf '%s\n' '  --disable-extensions-except=/data/extensions/pia'
 printf '%s\n' '  --load-extension=/data/extensions/pia'
 printf '%s\n' '  --no-sandbox'
+
+printf "\n"
+printf '%s\n' 'Initial Profile:'
+printf '%s\n' "  $PROFILE_COUNT profile"
 
 printf "\n"
 printf '%s\n' '============================================================'
