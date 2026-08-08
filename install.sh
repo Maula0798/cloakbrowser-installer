@@ -8,7 +8,7 @@ set -Eeuo pipefail
 # Manual PIA VPN Upload
 # ============================================================
 
-REPO_URL="https://github.com/CloakHQ/CloakBrowser-Manager.git"
+REPO_URL="https://github.com/Maula0798/CloakBrowser-MOD.git""
 
 APP_DIR="/opt/CloakBrowser-Manager"
 PIA_DIR="$APP_DIR/extensions/pia"
