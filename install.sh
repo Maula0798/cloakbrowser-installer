@@ -1,4 +1,3 @@
-```bash
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
@@ -12,6 +11,9 @@ set -Eeuo pipefail
 
 REPO_URL="https://github.com/Maula0798/CloakBrowser-MOD.git"
 
+INSTALLER_REPO="https://raw.githubusercontent.com/Maula0798/cloakbrowser-installer/main"
+PROFILE_SCRIPT_URL="$INSTALLER_REPO/create_profiles.sh"
+
 APP_DIR="/opt/CloakBrowser-Manager"
 PIA_DIR="$APP_DIR/extensions/pia"
 COMPOSE_FILE="$APP_DIR/docker-compose.yml"
@@ -20,26 +22,28 @@ OVERRIDE_FILE="$APP_DIR/docker-compose.override.yml"
 CONTAINER_NAME="cloakbrowser-manager-manager-1"
 SERVICE_NAME="manager"
 
-DEFAULT_PROFILE_COUNT=4
+PROFILE_SCRIPT="/root/create_profiles.sh"
 
 # ============================================================
 # ROOT
 # ============================================================
 
 if [ "$EUID" -ne 0 ]; then
-    echo "[ERROR] Jalankan sebagai root."
+    printf '%s\n' '[ERROR] Jalankan sebagai root.'
     exit 1
 fi
 
 # ============================================================
-# CURL | BASH SAFE INPUT
+# INTERACTIVE TERMINAL
 # ============================================================
 
-if [ ! -t 0 ]; then
+if [ -t 0 ]; then
+    :
+else
     if [ -e /dev/tty ]; then
         exec </dev/tty
     else
-        echo "[ERROR] Terminal interaktif tidak tersedia."
+        printf '%s\n' '[ERROR] Terminal interaktif tidak tersedia.'
         exit 1
     fi
 fi
@@ -73,7 +77,7 @@ printf '%s\n' 'Ubuntu 24.04'
 printf '%s\n' 'Docker'
 printf '%s\n' 'CloakBrowser MOD'
 printf '%s\n' 'PIA VPN Extension'
-printf '%s\n' 'Initial Profiles'
+printf '%s\n' 'Initial Profiles + Proxy'
 printf "\n"
 
 printf '%s\n' 'Installer akan menampilkan proses secara realtime.'
@@ -91,20 +95,16 @@ printf '%s\n' ' 1/11 - UPDATE UBUNTU'
 printf '%s\n' '============================================================'
 printf "\n"
 
-printf '%s\n' '[1/4] apt update...'
+printf '%s\n' '[1/3] apt update...'
 apt update
 
 printf "\n"
-printf '%s\n' '[2/4] apt upgrade...'
+printf '%s\n' '[2/3] apt upgrade...'
 DEBIAN_FRONTEND=noninteractive apt upgrade -y
 
 printf "\n"
-printf '%s\n' '[3/4] Install ca-certificates...'
-apt install -y ca-certificates
-
-printf "\n"
-printf '%s\n' '[4/4] Install curl, gnupg, git, python3...'
-apt install -y curl gnupg git python3
+printf '%s\n' '[3/3] Install curl, gnupg, git...'
+apt install -y ca-certificates curl gnupg git
 
 printf "\n"
 printf '%s\n' '[OK] Ubuntu siap.'
@@ -214,9 +214,11 @@ if [ -d "$APP_DIR/.git" ]; then
 
     printf "\n"
     printf '%s\n' '[1/3] Set remote repository...'
+
     git remote set-url origin "$REPO_URL"
 
     printf '%s\n' '[2/3] Git status...'
+
     git status --short || true
 
     printf "\n"
@@ -232,6 +234,7 @@ else
     printf "\n"
 
     mkdir -p /opt
+
     git clone "$REPO_URL" "$APP_DIR"
 
 fi
@@ -271,15 +274,11 @@ if [ ! -f "$COMPOSE_FILE" ]; then
     exit 1
 fi
 
-printf '%s\n' '[INFO] Backup docker-compose.yml...'
+printf '%s\n' '[1/3] Backup docker-compose.yml...'
+
 cp "$COMPOSE_FILE" "$COMPOSE_FILE.backup"
 
-# ------------------------------------------------------------
-# PORT 8080
-# ------------------------------------------------------------
-
-printf "\n"
-printf '%s\n' '[1/3] Konfigurasi port 8080...'
+printf '%s\n' '[2/3] Konfigurasi port 8080...'
 
 if grep -q '127\.0\.0\.1:8080:8080' "$COMPOSE_FILE"; then
 
@@ -287,7 +286,7 @@ if grep -q '127\.0\.0\.1:8080:8080' "$COMPOSE_FILE"; then
         's/127\.0\.0\.1:8080:8080/0.0.0.0:8080:8080/g' \
         "$COMPOSE_FILE"
 
-    printf '%s\n' '[OK] Port diubah menjadi 0.0.0.0:8080.'
+    printf '%s\n' '[OK] Port 8080 dibuka ke 0.0.0.0.'
 
 else
 
@@ -295,12 +294,7 @@ else
 
 fi
 
-# ------------------------------------------------------------
-# PIA MOUNT
-# ------------------------------------------------------------
-
-printf "\n"
-printf '%s\n' '[2/3] Konfigurasi mount PIA...'
+printf '%s\n' '[3/3] Konfigurasi PIA mount...'
 
 cat > "$OVERRIDE_FILE" <<EOF
 services:
@@ -312,17 +306,16 @@ services:
         read_only: true
 EOF
 
-printf '%s\n' '[OK] PIA mount:'
-printf '%s\n' "  $PIA_DIR"
-printf '%s\n' '       ↓'
-printf '%s\n' '  /data/extensions/pia'
-
-# ------------------------------------------------------------
-# COMPOSE CHECK
-# ------------------------------------------------------------
+printf '%s\n' '[OK] PIA mount dikonfigurasi.'
 
 printf "\n"
-printf '%s\n' '[3/3] Validasi Docker Compose...'
+printf '%s\n' 'Host:'
+printf '%s\n' "  $PIA_DIR"
+
+printf '%s\n' 'Container:'
+printf '%s\n' '  /data/extensions/pia'
+
+printf "\n"
 
 docker compose config >/dev/null
 
@@ -339,7 +332,7 @@ printf '%s\n' '============================================================'
 printf "\n"
 
 printf '%s\n' '[INFO] Docker build dimulai.'
-printf '%s\n' '[INFO] Log build ditampilkan realtime.'
+printf '%s\n' '[INFO] Log build tampil realtime.'
 printf "\n"
 
 docker compose build
@@ -348,7 +341,7 @@ printf "\n"
 printf '%s\n' '[OK] Build selesai.'
 
 # ============================================================
-# 8/11 - START + ONLINE
+# 8/11 - START
 # ============================================================
 
 printf "\n"
@@ -356,8 +349,6 @@ printf '%s\n' '============================================================'
 printf '%s\n' ' 8/11 - START CLOAKBROWSER + PORT 8080'
 printf '%s\n' '============================================================'
 printf "\n"
-
-printf '%s\n' '[INFO] Menjalankan container...'
 
 docker compose up -d
 
@@ -373,7 +364,7 @@ if docker compose ps --status running | grep -q "$SERVICE_NAME"; then
 else
     printf '%s\n' '[ERROR] Container Manager tidak berjalan.'
     printf "\n"
-    docker compose logs --tail=100
+    docker compose logs --tail=100 || true
     exit 1
 fi
 
@@ -422,6 +413,8 @@ printf "\n"
 printf '%s\n' '============================================================'
 printf "\n"
 
+ANSWER=""
+
 while true; do
 
     read -r -p \
@@ -469,15 +462,12 @@ if [ ! -f "$PIA_DIR/manifest.json" ]; then
 
     ls -la "$PIA_DIR"
 
+    printf "\n"
     exit 1
 
 fi
 
 printf '%s\n' '[OK] manifest.json ditemukan.'
-
-# ------------------------------------------------------------
-# MANIFEST INFO
-# ------------------------------------------------------------
 
 printf "\n"
 printf '%s\n' '[2/5] Informasi extension:'
@@ -488,20 +478,12 @@ grep -E \
     "$PIA_DIR/manifest.json" |
     head -10 || true
 
-# ------------------------------------------------------------
-# COMPOSE VALIDATION
-# ------------------------------------------------------------
-
 printf "\n"
 printf '%s\n' '[3/5] Validasi Docker Compose...'
 
 docker compose config >/dev/null
 
 printf '%s\n' '[OK] Docker Compose valid.'
-
-# ------------------------------------------------------------
-# RECREATE
-# ------------------------------------------------------------
 
 printf "\n"
 printf '%s\n' '[4/5] Recreate container...'
@@ -511,10 +493,6 @@ docker compose up -d --force-recreate
 sleep 5
 
 printf '%s\n' '[OK] Container sudah direcreate.'
-
-# ------------------------------------------------------------
-# PIA CONTAINER CHECK
-# ------------------------------------------------------------
 
 printf "\n"
 printf '%s\n' '[5/5] Cek PIA dari dalam container...'
@@ -528,13 +506,6 @@ else
 
     printf "\n"
     printf '%s\n' '[ERROR] PIA tidak terbaca di container.'
-    printf "\n"
-
-    printf '%s\n' 'Mount yang diharapkan:'
-    printf '%s\n' "  $PIA_DIR"
-    printf '%s\n' '       ↓'
-    printf '%s\n' '  /data/extensions/pia'
-
     printf "\n"
 
     docker inspect "$CONTAINER_NAME" \
@@ -568,174 +539,65 @@ printf '%s\n' ' 11/11 - CREATE INITIAL PROFILES'
 printf '%s\n' '============================================================'
 printf "\n"
 
-DEFAULT_PROFILE_COUNT=4
-
-printf '%s\n' "Default jumlah profile: $DEFAULT_PROFILE_COUNT"
-printf '%s\n' 'Tekan ENTER untuk memakai 4 profile.'
-printf '%s\n' 'Atau masukkan jumlah lain.'
+printf '%s\n' '[INFO] Menyiapkan Profile Creator...'
 printf "\n"
 
-read -r -p \
-    "Berapa profile yang ingin dibuat? [$DEFAULT_PROFILE_COUNT]: " \
-    PROFILE_COUNT < /dev/tty
+# ============================================================
+# DOWNLOAD CREATE_PROFILES.SH
+# ============================================================
 
-if [ -z "$PROFILE_COUNT" ]; then
-    PROFILE_COUNT="$DEFAULT_PROFILE_COUNT"
-fi
+printf '%s\n' '[1/3] Download create_profiles.sh...'
 
-if ! [[ "$PROFILE_COUNT" =~ ^[0-9]+$ ]]; then
-    printf '%s\n' '[ERROR] Jumlah profile harus berupa angka.'
+rm -f "$PROFILE_SCRIPT"
+
+curl -fL \
+    "$PROFILE_SCRIPT_URL" \
+    -o "$PROFILE_SCRIPT"
+
+if [ ! -s "$PROFILE_SCRIPT" ]; then
+    printf '%s\n' '[ERROR] create_profiles.sh kosong atau gagal didownload.'
     exit 1
 fi
 
-if [ "$PROFILE_COUNT" -lt 1 ]; then
-    printf '%s\n' '[ERROR] Jumlah profile minimal 1.'
+chmod +x "$PROFILE_SCRIPT"
+
+printf '%s\n' '[OK] create_profiles.sh siap.'
+
+printf "\n"
+
+# ============================================================
+# CEK SCRIPT
+# ============================================================
+
+printf '%s\n' '[2/3] Validasi create_profiles.sh...'
+
+if ! head -1 "$PROFILE_SCRIPT" |
+    grep -q '#!/usr/bin/env bash'; then
+
+    printf '%s\n' '[ERROR] create_profiles.sh bukan Bash script yang valid.'
     exit 1
 fi
 
-printf "\n"
-printf '%s\n' "[INFO] Membuat $PROFILE_COUNT profile..."
-printf "\n"
+printf '%s\n' '[OK] Profile Creator valid.'
 
-# ============================================================
-# CARI DATABASE.PY
-# ============================================================
-
-printf '%s\n' '[INFO] Mencari database.py di container...'
-
-DB_FILE="$(
-    docker exec "$CONTAINER_NAME" \
-        sh -c 'find /app /opt /workspace /src -type f -name database.py 2>/dev/null | head -1' |
-        tr -d '\r'
-)"
-
-if [ -z "$DB_FILE" ]; then
-
-    printf "\n"
-    printf '%s\n' '[ERROR] database.py tidak ditemukan di container.'
-    printf "\n"
-
-    docker exec "$CONTAINER_NAME" \
-        sh -c '
-            echo "=== /app ==="
-            ls -la /app 2>/dev/null || true
-            echo
-            echo "=== /opt ==="
-            ls -la /opt 2>/dev/null || true
-            echo
-            echo "=== /workspace ==="
-            ls -la /workspace 2>/dev/null || true
-            echo
-            echo "=== /src ==="
-            ls -la /src 2>/dev/null || true
-        '
-
-    exit 1
-
-fi
-
-DB_DIR="$(dirname "$DB_FILE")"
-
-printf '%s\n' '[OK] database.py ditemukan:'
-printf '%s\n' "  $DB_FILE"
-printf "\n"
-
-# ============================================================
-# CREATE PYTHON RUNNER
-# ============================================================
-
-printf '%s\n' '[INFO] Menyiapkan profile creator...'
-
-docker exec -i "$CONTAINER_NAME" \
-    sh -c 'cat > /tmp/create_initial_profiles.py' <<'PYTHON'
-import os
-import sys
-
-db_dir = os.environ["DB_DIR"]
-
-if db_dir not in sys.path:
-    sys.path.insert(0, db_dir)
-
-from database import create_initial_profiles
-
-
-def main():
-    count = int(os.environ["PROFILE_COUNT"])
-
-    print()
-    print("=" * 60)
-    print(f"CREATE {count} PROFILE")
-    print("=" * 60)
-    print()
-
-    profiles = create_initial_profiles(count)
-
-    print()
-    print("=" * 60)
-    print(f"[OK] {len(profiles)} PROFILE BERHASIL DIBUAT")
-    print("=" * 60)
-
-    for i, profile in enumerate(profiles, 1):
-
-        name = profile.get("name", "")
-        profile_id = profile.get("id", "")
-        seed = profile.get("fingerprint_seed", "")
-        data_dir = profile.get("user_data_dir", "")
-        proxy = profile.get("proxy") or "TANPA PROXY"
-        launch_args = profile.get("launch_args") or []
-
-        print()
-        print(f"[{i}/{len(profiles)}] {name}")
-        print(f"      UUID : {profile_id}")
-        print(f"      Seed : {seed}")
-        print(f"      Data : {data_dir}")
-        print(f"      Proxy : {proxy}")
-        print(f"      Launch Args : {len(launch_args)}")
-
-        for arg in launch_args:
-            print(f"        - {arg}")
-
-    print()
-
-
-if __name__ == "__main__":
-    main()
-PYTHON
-
-printf '%s\n' '[OK] Profile creator siap.'
 printf "\n"
 
 # ============================================================
 # RUN PROFILE CREATOR
 # ============================================================
 
-printf '%s\n' '[INFO] Menjalankan create_initial_profiles()...'
-printf '%s\n' '[INFO] Input proxy akan dilakukan di bawah.'
-printf '%s\n' '[INFO] ENTER kosong = tanpa proxy.'
+printf '%s\n' '[3/3] Menjalankan Profile Creator...'
 printf "\n"
 
-docker exec -i \
-    -e PROFILE_COUNT="$PROFILE_COUNT" \
-    -e DB_DIR="$DB_DIR" \
-    "$CONTAINER_NAME" \
-    python3 /tmp/create_initial_profiles.py
+BASE_URL="http://127.0.0.1:8080" \
+DEFAULT_PROFILE_COUNT=4 \
+bash "$PROFILE_SCRIPT"
 
 # ============================================================
-# CLEANUP
+# FINAL
 # ============================================================
-
-docker exec "$CONTAINER_NAME" \
-    rm -f /tmp/create_initial_profiles.py \
-    2>/dev/null || true
 
 printf "\n"
-printf '%s\n' '[OK] Tahap pembuatan profile selesai.'
-printf "\n"
-
-# ============================================================
-# FINAL STATUS
-# ============================================================
-
 printf '%s\n' '============================================================'
 printf '%s\n' '              INSTALLASI SELESAI'
 printf '%s\n' '============================================================'
@@ -756,18 +618,13 @@ printf '%s\n' 'PIA Container:'
 printf '%s\n' '  /data/extensions/pia'
 
 printf "\n"
-printf '%s\n' 'Default Chromium Launch Args:'
+printf '%s\n' 'Chromium Launch Args:'
 printf '%s\n' '  --disable-extensions-except=/data/extensions/pia'
 printf '%s\n' '  --load-extension=/data/extensions/pia'
 printf '%s\n' '  --no-sandbox'
-
-printf "\n"
-printf '%s\n' 'Initial Profile:'
-printf '%s\n' "  $PROFILE_COUNT profile"
 
 printf "\n"
 printf '%s\n' '============================================================'
 printf '%s\n' '                    SELESAI'
 printf '%s\n' '============================================================'
 printf "\n"
-```
