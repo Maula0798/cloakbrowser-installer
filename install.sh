@@ -1,3 +1,4 @@
+```bash
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
@@ -6,7 +7,7 @@ set -Eeuo pipefail
 # Ubuntu 24.04
 # Docker + CloakBrowser MOD + Online :8080
 # Manual PIA VPN Upload
-# Create Initial Profiles
+# Create Initial Profiles + Proxy Input
 # ============================================================
 
 REPO_URL="https://github.com/Maula0798/CloakBrowser-MOD.git"
@@ -22,18 +23,25 @@ SERVICE_NAME="manager"
 DEFAULT_PROFILE_COUNT=4
 
 # ============================================================
-# IMPORTANT:
-# Installer dijalankan dengan:
-#
-# curl ... | bash
-#
-# Jadi semua input interaktif diarahkan ke terminal asli.
+# ROOT
 # ============================================================
 
-if [ -t 0 ]; then
-    :
-else
-    exec </dev/tty
+if [ "$EUID" -ne 0 ]; then
+    echo "[ERROR] Jalankan sebagai root."
+    exit 1
+fi
+
+# ============================================================
+# CURL | BASH SAFE INPUT
+# ============================================================
+
+if [ ! -t 0 ]; then
+    if [ -e /dev/tty ]; then
+        exec </dev/tty
+    else
+        echo "[ERROR] Terminal interaktif tidak tersedia."
+        exit 1
+    fi
 fi
 
 # ============================================================
@@ -48,16 +56,6 @@ printf "%s\n" "============================================================"
 printf "\n"
 exit 1
 ' ERR
-
-# ============================================================
-# ROOT CHECK
-# ============================================================
-
-if [ "$EUID" -ne 0 ]; then
-    printf "\n"
-    printf '%s\n' '[ERROR] Jalankan sebagai root.'
-    exit 1
-fi
 
 # ============================================================
 # HEADER
@@ -216,7 +214,6 @@ if [ -d "$APP_DIR/.git" ]; then
 
     printf "\n"
     printf '%s\n' '[1/3] Set remote repository...'
-
     git remote set-url origin "$REPO_URL"
 
     printf '%s\n' '[2/3] Git status...'
@@ -235,7 +232,6 @@ else
     printf "\n"
 
     mkdir -p /opt
-
     git clone "$REPO_URL" "$APP_DIR"
 
 fi
@@ -276,7 +272,6 @@ if [ ! -f "$COMPOSE_FILE" ]; then
 fi
 
 printf '%s\n' '[INFO] Backup docker-compose.yml...'
-
 cp "$COMPOSE_FILE" "$COMPOSE_FILE.backup"
 
 # ------------------------------------------------------------
@@ -427,13 +422,11 @@ printf "\n"
 printf '%s\n' '============================================================'
 printf "\n"
 
-ANSWER=""
-
 while true; do
 
     read -r -p \
         "Ketik YES setelah upload PIA selesai: " \
-        ANSWER
+        ANSWER < /dev/tty
 
     ANSWER="$(
         printf '%s' "$ANSWER" |
@@ -476,7 +469,6 @@ if [ ! -f "$PIA_DIR/manifest.json" ]; then
 
     ls -la "$PIA_DIR"
 
-    printf "\n"
     exit 1
 
 fi
@@ -549,6 +541,7 @@ else
         --format '{{json .Mounts}}' || true
 
     printf "\n"
+
     docker compose logs --tail=100 || true
 
     exit 1
@@ -575,6 +568,8 @@ printf '%s\n' ' 11/11 - CREATE INITIAL PROFILES'
 printf '%s\n' '============================================================'
 printf "\n"
 
+DEFAULT_PROFILE_COUNT=4
+
 printf '%s\n' "Default jumlah profile: $DEFAULT_PROFILE_COUNT"
 printf '%s\n' 'Tekan ENTER untuk memakai 4 profile.'
 printf '%s\n' 'Atau masukkan jumlah lain.'
@@ -582,7 +577,7 @@ printf "\n"
 
 read -r -p \
     "Berapa profile yang ingin dibuat? [$DEFAULT_PROFILE_COUNT]: " \
-    PROFILE_COUNT
+    PROFILE_COUNT < /dev/tty
 
 if [ -z "$PROFILE_COUNT" ]; then
     PROFILE_COUNT="$DEFAULT_PROFILE_COUNT"
@@ -602,9 +597,9 @@ printf "\n"
 printf '%s\n' "[INFO] Membuat $PROFILE_COUNT profile..."
 printf "\n"
 
-# ------------------------------------------------------------
-# Cari database.py
-# ------------------------------------------------------------
+# ============================================================
+# CARI DATABASE.PY
+# ============================================================
 
 printf '%s\n' '[INFO] Mencari database.py di container...'
 
@@ -630,6 +625,9 @@ if [ -z "$DB_FILE" ]; then
             echo
             echo "=== /workspace ==="
             ls -la /workspace 2>/dev/null || true
+            echo
+            echo "=== /src ==="
+            ls -la /src 2>/dev/null || true
         '
 
     exit 1
@@ -642,56 +640,102 @@ printf '%s\n' '[OK] database.py ditemukan:'
 printf '%s\n' "  $DB_FILE"
 printf "\n"
 
-printf '%s\n' '[INFO] Menjalankan create_initial_profiles()...'
-printf "\n"
+# ============================================================
+# CREATE PYTHON RUNNER
+# ============================================================
 
-# ------------------------------------------------------------
-# Create profiles
-# ------------------------------------------------------------
+printf '%s\n' '[INFO] Menyiapkan profile creator...'
 
-docker exec \
-    -e PROFILE_COUNT="$PROFILE_COUNT" \
-    -e DB_DIR="$DB_DIR" \
-    "$CONTAINER_NAME" \
-    python3 -c '
+docker exec -i "$CONTAINER_NAME" \
+    sh -c 'cat > /tmp/create_initial_profiles.py' <<'PYTHON'
 import os
 import sys
 
 db_dir = os.environ["DB_DIR"]
-sys.path.insert(0, db_dir)
+
+if db_dir not in sys.path:
+    sys.path.insert(0, db_dir)
 
 from database import create_initial_profiles
 
-count = int(os.environ["PROFILE_COUNT"])
 
-profiles = create_initial_profiles(count)
+def main():
+    count = int(os.environ["PROFILE_COUNT"])
 
-print("")
-print("=" * 60)
-print(f"[OK] {len(profiles)} PROFILE BERHASIL DIBUAT")
-print("=" * 60)
+    print()
+    print("=" * 60)
+    print(f"CREATE {count} PROFILE")
+    print("=" * 60)
+    print()
 
-for i, profile in enumerate(profiles, 1):
+    profiles = create_initial_profiles(count)
 
-    print("")
-    print(f"[{i}/{len(profiles)}] {profile.get("name")}")
-    print(f"      UUID : {profile.get("id")}")
-    print(f"      Seed : {profile.get("fingerprint_seed")}")
-    print(f"      Data : {profile.get("user_data_dir")}")
+    print()
+    print("=" * 60)
+    print(f"[OK] {len(profiles)} PROFILE BERHASIL DIBUAT")
+    print("=" * 60)
 
-    args = profile.get("launch_args") or []
+    for i, profile in enumerate(profiles, 1):
 
-    print(f"      Launch Args : {len(args)}")
+        name = profile.get("name", "")
+        profile_id = profile.get("id", "")
+        seed = profile.get("fingerprint_seed", "")
+        data_dir = profile.get("user_data_dir", "")
+        proxy = profile.get("proxy") or "TANPA PROXY"
+        launch_args = profile.get("launch_args") or []
 
-    for arg in args:
-        print(f"        - {arg}")
-'
+        print()
+        print(f"[{i}/{len(profiles)}] {name}")
+        print(f"      UUID : {profile_id}")
+        print(f"      Seed : {seed}")
+        print(f"      Data : {data_dir}")
+        print(f"      Proxy : {proxy}")
+        print(f"      Launch Args : {len(launch_args)}")
+
+        for arg in launch_args:
+            print(f"        - {arg}")
+
+    print()
+
+
+if __name__ == "__main__":
+    main()
+PYTHON
+
+printf '%s\n' '[OK] Profile creator siap.'
+printf "\n"
+
+# ============================================================
+# RUN PROFILE CREATOR
+# ============================================================
+
+printf '%s\n' '[INFO] Menjalankan create_initial_profiles()...'
+printf '%s\n' '[INFO] Input proxy akan dilakukan di bawah.'
+printf '%s\n' '[INFO] ENTER kosong = tanpa proxy.'
+printf "\n"
+
+docker exec -i \
+    -e PROFILE_COUNT="$PROFILE_COUNT" \
+    -e DB_DIR="$DB_DIR" \
+    "$CONTAINER_NAME" \
+    python3 /tmp/create_initial_profiles.py
+
+# ============================================================
+# CLEANUP
+# ============================================================
+
+docker exec "$CONTAINER_NAME" \
+    rm -f /tmp/create_initial_profiles.py \
+    2>/dev/null || true
+
+printf "\n"
+printf '%s\n' '[OK] Tahap pembuatan profile selesai.'
+printf "\n"
 
 # ============================================================
 # FINAL STATUS
 # ============================================================
 
-printf "\n"
 printf '%s\n' '============================================================'
 printf '%s\n' '              INSTALLASI SELESAI'
 printf '%s\n' '============================================================'
@@ -726,3 +770,4 @@ printf '%s\n' '============================================================'
 printf '%s\n' '                    SELESAI'
 printf '%s\n' '============================================================'
 printf "\n"
+```
