@@ -16,6 +16,26 @@ PIA_DIR="$APP_DIR/extensions/pia"
 COMPOSE_FILE="$APP_DIR/docker-compose.yml"
 OVERRIDE_FILE="$APP_DIR/docker-compose.override.yml"
 
+CONTAINER_NAME="cloakbrowser-manager-manager-1"
+SERVICE_NAME="manager"
+
+DEFAULT_PROFILE_COUNT=4
+
+# ============================================================
+# IMPORTANT:
+# Installer dijalankan dengan:
+#
+# curl ... | bash
+#
+# Jadi semua input interaktif diarahkan ke terminal asli.
+# ============================================================
+
+if [ -t 0 ]; then
+    :
+else
+    exec </dev/tty
+fi
+
 # ============================================================
 # ERROR HANDLER
 # ============================================================
@@ -64,7 +84,7 @@ printf "\n"
 sleep 2
 
 # ============================================================
-# 1/11 - UBUNTU
+# 1/11 - UPDATE UBUNTU
 # ============================================================
 
 printf "\n"
@@ -195,7 +215,7 @@ if [ -d "$APP_DIR/.git" ]; then
     cd "$APP_DIR"
 
     printf "\n"
-    printf '%s\n' '[1/3] Cek remote repository...'
+    printf '%s\n' '[1/3] Set remote repository...'
 
     git remote set-url origin "$REPO_URL"
 
@@ -353,7 +373,7 @@ docker compose ps
 
 printf "\n"
 
-if docker compose ps --status running | grep -q manager; then
+if docker compose ps --status running | grep -q "$SERVICE_NAME"; then
     printf '%s\n' '[OK] Container Manager RUNNING.'
 else
     printf '%s\n' '[ERROR] Container Manager tidak berjalan.'
@@ -413,7 +433,7 @@ while true; do
 
     read -r -p \
         "Ketik YES setelah upload PIA selesai: " \
-        ANSWER < /dev/tty
+        ANSWER
 
     ANSWER="$(
         printf '%s' "$ANSWER" |
@@ -507,7 +527,7 @@ printf '%s\n' '[OK] Container sudah direcreate.'
 printf "\n"
 printf '%s\n' '[5/5] Cek PIA dari dalam container...'
 
-if docker compose exec -T manager \
+if docker exec "$CONTAINER_NAME" \
     test -f /data/extensions/pia/manifest.json; then
 
     printf '%s\n' '[OK] PIA TERBACA DI CONTAINER.'
@@ -525,8 +545,8 @@ else
 
     printf "\n"
 
-    docker compose config |
-        grep -A10 -B5 '/data/extensions/pia' || true
+    docker inspect "$CONTAINER_NAME" \
+        --format '{{json .Mounts}}' || true
 
     printf "\n"
     docker compose logs --tail=100 || true
@@ -536,16 +556,24 @@ else
 fi
 
 # ============================================================
-# 11/11 - CREATE INITIAL PROFILES
+# FORCE CONTINUE
 # ============================================================
 
 printf "\n"
+printf '%s\n' '[OK] Validasi tahap 10/11 selesai.'
+printf '%s\n' '[INFO] Installer melanjutkan ke tahap 11/11...'
+printf "\n"
+
+sleep 2
+
+# ============================================================
+# 11/11 - CREATE INITIAL PROFILES
+# ============================================================
+
 printf '%s\n' '============================================================'
 printf '%s\n' ' 11/11 - CREATE INITIAL PROFILES'
 printf '%s\n' '============================================================'
 printf "\n"
-
-DEFAULT_PROFILE_COUNT=4
 
 printf '%s\n' "Default jumlah profile: $DEFAULT_PROFILE_COUNT"
 printf '%s\n' 'Tekan ENTER untuk memakai 4 profile.'
@@ -554,7 +582,7 @@ printf "\n"
 
 read -r -p \
     "Berapa profile yang ingin dibuat? [$DEFAULT_PROFILE_COUNT]: " \
-    PROFILE_COUNT < /dev/tty
+    PROFILE_COUNT
 
 if [ -z "$PROFILE_COUNT" ]; then
     PROFILE_COUNT="$DEFAULT_PROFILE_COUNT"
@@ -575,13 +603,15 @@ printf '%s\n' "[INFO] Membuat $PROFILE_COUNT profile..."
 printf "\n"
 
 # ------------------------------------------------------------
-# Cari database.py yang benar di dalam container
+# Cari database.py
 # ------------------------------------------------------------
 
+printf '%s\n' '[INFO] Mencari database.py di container...'
+
 DB_FILE="$(
-    docker compose exec -T manager sh -c \
-    'find /app /opt /workspace /src -type f -name database.py 2>/dev/null | head -1' |
-    tr -d '\r'
+    docker exec "$CONTAINER_NAME" \
+        sh -c 'find /app /opt /workspace /src -type f -name database.py 2>/dev/null | head -1' |
+        tr -d '\r'
 )"
 
 if [ -z "$DB_FILE" ]; then
@@ -590,11 +620,18 @@ if [ -z "$DB_FILE" ]; then
     printf '%s\n' '[ERROR] database.py tidak ditemukan di container.'
     printf "\n"
 
-    printf '%s\n' 'Folder container yang tersedia:'
-    docker compose exec -T manager sh -c \
-        'ls -la /app 2>/dev/null || true; ls -la /opt 2>/dev/null || true; ls -la /workspace 2>/dev/null || true; ls -la /src 2>/dev/null || true'
+    docker exec "$CONTAINER_NAME" \
+        sh -c '
+            echo "=== /app ==="
+            ls -la /app 2>/dev/null || true
+            echo
+            echo "=== /opt ==="
+            ls -la /opt 2>/dev/null || true
+            echo
+            echo "=== /workspace ==="
+            ls -la /workspace 2>/dev/null || true
+        '
 
-    printf "\n"
     exit 1
 
 fi
@@ -608,11 +645,14 @@ printf "\n"
 printf '%s\n' '[INFO] Menjalankan create_initial_profiles()...'
 printf "\n"
 
-docker compose exec -T \
+# ------------------------------------------------------------
+# Create profiles
+# ------------------------------------------------------------
+
+docker exec \
     -e PROFILE_COUNT="$PROFILE_COUNT" \
-    -e DB_FILE="$DB_FILE" \
     -e DB_DIR="$DB_DIR" \
-    manager \
+    "$CONTAINER_NAME" \
     python3 -c '
 import os
 import sys
@@ -634,11 +674,11 @@ print("=" * 60)
 for i, profile in enumerate(profiles, 1):
 
     print("")
-    print(f"[{i}/{len(profiles)}] {profile.get(\"name\")}")
-    print(f"      UUID : {profile.get(\"id\")}")
-    print(f"      Seed : {profile.get(\"fingerprint_seed\")}")
-    print(f"      Data : {profile.get(\"user_data_dir\")}")
-    
+    print(f"[{i}/{len(profiles)}] {profile.get("name")}")
+    print(f"      UUID : {profile.get("id")}")
+    print(f"      Seed : {profile.get("fingerprint_seed")}")
+    print(f"      Data : {profile.get("user_data_dir")}")
+
     args = profile.get("launch_args") or []
 
     print(f"      Launch Args : {len(args)}")
