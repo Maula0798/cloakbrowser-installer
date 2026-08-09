@@ -943,11 +943,11 @@ printf "\n"
 printf '%s\n' 'PIA Container:'
 printf '%s\n' '  /data/extensions/pia'
 
-printf "\n"
-printf '%s\n' 'Default Chromium Launch Args:'
-printf '%s\n' '  --disable-extensions-except=/data/extensions/pia'
-printf '%s\n' '  --load-extension=/data/extensions/pia'
-printf '%s\n' '  --no-sandbox'
+#printf "\n"
+#printf '%s\n' 'Default Chromium Launch Args:'
+#printf '%s\n' '  --disable-extensions-except=/data/extensions/pia'
+#printf '%s\n' '  --load-extension=/data/extensions/pia'
+#printf '%s\n' '  --no-sandbox'
 
 printf "\n"
 printf '%s\n' 'Initial Profile:'
